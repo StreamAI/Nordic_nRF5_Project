@@ -1,7 +1,7 @@
-# Nordic_nRF5_Project
-Connect the BLE target device by scanning the address code
+# 如何实现扫码连接BLE 设备的功能?
 
 # 前言
+
 现在大部分蓝牙设备都不具备输入输出功能，主要靠蓝牙主机扫描发现周围的蓝牙从机，蓝牙从机需要处于广播模式才能被主机发现。蓝牙主机会将扫描发现的从机设备展示在一个列表中，你可以根据设备名称、类型和图标等信息，选择要连接哪一个从机设备。
 
 如果周围有多个设备名称、类型和图标等信息都相同的从机设备，该怎么区分彼此呢？这种情况在物联网设备普及的当下也是经常遇到的。如果多个从机设备与蓝牙主机的距离有明显差异，可以通过扫描发现的设备列表先后排序区分彼此。蓝牙主机发现的设备列表是按照相对距离排序的，根据接收到广播报文的信号强度和报文中包含的发射功率等信息，蓝牙主机可以计算出每个蓝牙从机到主机的路径损耗，进而计算出每个蓝牙从机到主机的相对距离，距离蓝牙主机越近的从机设备，在扫描设备列表中的排序越靠前。
@@ -17,7 +17,9 @@ Connect the BLE target device by scanning the address code
 ![BLE Nordic UART Service](https://img-blog.csdnimg.cn/20201026110203434.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L20wXzM3NjIxMDc4,size_16,color_FFFFFF,t_70#pic_center)
 
 # 一、nRF5 SDK 开发环境搭建
+
 ## 1.1 nRF5 SDK和SoftDevice 版本选择
+
 Nodic 半导体为nRF52 BLE 芯片提供了nRF5 SDK 开发工具，SDK 内包含一些蓝牙应用示例，我们可以在此基础上开发我们需要的功能，比如我们可以在蓝牙透传示例代码基础上开发一扫即连的功能。
 
 NRF52 芯片的BLE 驱动程序被封装为softdevice.hex 文件提供给用户了，开发者根据需要直接调用相应的API 就可以了，读者可以参考博文：[Nordic nRF5 SDK和softdevice介绍](https://www.cnblogs.com/iini/p/9095551.html)了解nRF5 开发环境搭建。
@@ -27,6 +29,7 @@ NRF52 芯片的BLE 驱动程序被封装为softdevice.hex 文件提供给用户�
 ![nRF5 softdevice 架构](https://img-blog.csdnimg.cn/20201022162831692.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L20wXzM3NjIxMDc4,size_16,color_FFFFFF,t_70#pic_center)
 
 ## 1.2 IDE 和J-Link 版本选择
+
 Nordic 支持的IDE 开发工具主要有四种：Segger Embedded Studio、Keil MDK-ARM、IAR for ARM、ARM GCC 等，用户可以根据自己的使用习惯选择IDE 工具。考虑到Nordic 对Segger Embedded Studio 的支持更友好，且Nordic 已经购买了Segger Embedded Studio for Nordic 的License，用户不需要再为License 付费，Segger Embedded Studio 更有跨平台的便利（支持windows、Linux、MAC OS 等开发平台，方便跨平台移植），本文选择最新版的SeggerEmbeddedStudio_ARM_v520 开发Nordic 应用。
 
 Nordic nRF52 DK 板载J-Link 模块，J-Link 仿真器也是Segger 公司开发的，因此Segger Embedded Studio 对J-Link 仿真功能的支持也更完善强大。为方便nRF52 BLE 芯片下载调试，还需要安装J-Link 驱动程序，本文选择最新版的 JLink_Windows_V684a。Nordic 对J-Link 驱动程序进行了封装，提供了nrfjprog 命令行工具，本文选择Nordic 封装的命令行工具版本 nRF-Command-Line-Tools_10_10_0_Installer。
@@ -40,6 +43,7 @@ Nordic nRF52 DK 板载J-Link 模块，J-Link 仿真器也是Segger 公司开发�
  - **Development platform**：Windows 10_x64
 
 # 二、扫码连接功能开发
+
 前言部分已经简单介绍了实现一扫即连功能的原理，一扫即连功能主要在BLE Central 端（也即nRF52 DK）实现，nRF52 DK 一端通过UART 与PC 通信，另一端通过BLE 与从机设备通信，这是典型的蓝牙串口透明传输应用，Nordic 也提供了相应的示例.\nRF5_SDK\examples\ble_central\ble_app_uart_c。
 
 我们可以在ble_app_uart_c 示例的基础上，新增我们需要的一扫即连功能。Nordic 提供的蓝牙透传示例工程主要包括两个部分：UART 应用和BLE NUS (Nordic UART Service)，前者对应上图中的App-Specific peripheral drivers 及其Application，后者对应上图中的nRF SoftDevice 及其Profiles / Services。
@@ -49,6 +53,7 @@ Nordic nRF52 DK 板载J-Link 模块，J-Link 仿真器也是Segger 公司开发�
 我们打开ble_app_uart_c 示例工程文件 .\nRF5_SDK_15.3.0_59ac345\examples\ble_central\ble_app_uart_c\pca10040\s132\ses\ble_app_uart_c_pca10040_s132.emProject，开始了解该示例工程的业务逻辑，并在此基础上新增我们需要的一扫即连功能。在此之前，我们先编译该工程项目，编译无错误，然后通过J-Link 连接nRF52 DK 并将编译文件烧录到开发板中，烧录验证均未报错，说明示例工程代码没问题。
 
 ## 2.1 ble_app_uart_c 工程简介
+
 Nordic 提供的ble_app_uart_c 示例工程并没有使用RTOS 实时操作系统，只是一个前后台系统，主要靠中断或事件触发来保证程序的实时性。我们先浏览该示例工程入口主函数的代码：
 
 ```c
@@ -90,7 +95,9 @@ BLE 协议栈比较复杂，涉及的状态也较多，Nordic 使用有限状态
 ![有限状态机模型](https://img-blog.csdnimg.cn/20201027141158930.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L20wXzM3NjIxMDc4,size_16,color_FFFFFF,t_70#pic_center)
 
 ## 2.2 GAP(目标设备发现和连接过程)
+
 ### 2.2.1 设置并启用过滤器
+
 蓝牙主机上电初始化后，先执行设备发现过程（[Discovery modes and procedures](https://blog.csdn.net/m0_37621078/article/details/107850523#t5)）以发现周围处于广播状态的从机设备（从机设备上电初始化后，执行advertising_start 过程开始对外广播），如果周围有多个处于可发现模式的从机设备，蓝牙主机将扫描出一个设备列表。工程ble_app_uart_c 初始化并执行设备发现过程的代码如下：
 
 ```c
@@ -264,6 +271,7 @@ ret_code_t nrf_ble_scan_filter_set(nrf_ble_scan_t     * const p_scan_ctx,
 到这里，蓝牙主机扫描过程的过滤条件配置完成。接下来需要解决的问题有两个：一个是如何将目标设备的MAC 地址传给蓝牙主机；另一个是如何配置为扫描到符合过滤条件的目标设备后自动向其发起连接。前一个问题在下文谈到UART 时解决，这里先解决后一个问题。
 
 ### 2.2.2 启用匹配即连接功能
+
 在函数scan_init 代码中，为变量 init_scan.connect_if_match 赋值为 true，看字面意思是如果符合过滤条件就发起连接，这个判断是否准确需要我们到数据结构的定义中确认，我们查询结构体类型nrf_ble_scan_init_t 和nrf_ble_scan_t 的数据结构声明如下：
 
 ```c
@@ -354,6 +362,7 @@ ret_code_t nrf_ble_scan_init(nrf_ble_scan_t            * const p_scan_ctx,
 从上述结构体变量connect_if_match 的注释中可以了解到，该成员变量赋值为true 就可以实现扫描到匹配过滤条件的目标设备后，自动向其发起连接，原工程代码的配置已经实现了我们期望的功能，因此不需要再对其修改。
 
 ### 2.2.3 设置扫描与连接参数
+
 在函数nrf_ble_scan_init 中，也完成了扫描参数和连接参数的初始化，ble_app_uart_c 工程直接使用了默认的扫描参数与连接参数，通过查看函数nrf_ble_scan_default_param_set 和nrf_ble_scan_default_conn_param_set 的实现代码，发现使用的扫描参数和连接参数来源于sdk_config.h 文件中的宏定义，本文也沿用如下的扫描参数与连接参数（可参考博文：[链路层广播通信与连接通信](https://blog.csdn.net/m0_37621078/article/details/107724799)）：
 
 ```c
@@ -432,6 +441,7 @@ SVCALL(SD_BLE_GAP_SCAN_START, uint32_t, sd_ble_gap_scan_start(ble_gap_scan_param
 函数nrf_ble_scan_start 最终调用的是蓝牙协议栈softdevice 的接口函数sd_ble_gap_scan_start，从该函数的介绍中可知，该函数会开始GAP Discovery procedure。在扫描发现过程中，如果接收到广播报文或扫描响应报文，则会触发BLE_GAP_EVT_ADV_REPORT 事件，若迟迟接收不到任何报文则会触发BLE_GAP_EVT_TIMEOUT 事件。当这些事件发生后，如何继续处理呢？
 
 ### 2.2.4 为扫描过程注册事件处理函数
+
 还记得前面介绍的有限状态机吗？在初始化过程中，会为可能发生的事件注册相应的事件处理函数，当某事件发生时会执行相应的事件处理函数，根据当前所处的状态执行特定的响应动作。 
 
 我们为扫描发现过程注册了两个事件处理函数，在前面扫描初始化函数nrf_ble_scan_init 代码中已经注册了一个事件处理函数scan_evt_handler，当协议栈完成扫描过程后会调用该函数通知应用层扫描结果，并根据扫描结果执行后续的响应动作，事件处理函数scan_evt_handler 的实现代码及可能的事件类型如下：
@@ -679,7 +689,9 @@ SVCALL(SD_BLE_GAP_CONNECT, uint32_t, sd_ble_gap_connect(ble_gap_addr_t const *p_
 蓝牙主机与目标从机设备成功建立连接后，就可以开始通信了。如果连接双方有加密通信的需求，接下来需要完成配对甚至绑定过程（本文无此过程）。如果从机设备提供了某些服务services 或profiles，蓝牙主机需要先发现这些服务，才能访问对应的服务，这个过程将在下文介绍。
 
 ## 2.3 GATT(NUS服务发现和交互过程)
+
 ### 2.3.1 BLE 协议栈初始化
+
 前面介绍了，蓝牙主机扫描到目标设备后，向其发起连接，双方连接建立成功后，蓝牙协议栈会触发BLE_GAP_EVT_CONNECTED 事件，该事件的处理函数是如何被实现并注册的呢？
 
 蓝牙连接过程也会向协议栈注册两个事件处理函数，一个是在蓝牙协议栈初始化函数ble_stack_init 中注册的事件处理函数ble_evt_handler，注册过程实现代码如下：
@@ -773,6 +785,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 蓝牙协议栈softdevice 触发连接成功事件BLE_GAP_EVT_CONNECTED 后，先为NUS 服务分配连接句柄，然后开始服务发现过程，以便发现连接的从机设备提供了哪些服务。
 
 ### 2.3.2 配置MTU 交换过程
+
 蓝牙主机在进行服务发现前，一般先完成服务配置过程，也即MTU(Maximum Transmission Unit) 交换过程（可参考博文：[GATT feature and procedure](https://blog.csdn.net/m0_37621078/article/details/108391261#t7)），该过程也是在双方建立连接后开始的。借助宏NRF_BLE_GATT_DEF 定义全局变量m_gatt，并向BLE 协议栈注册事件处理函数nrf_ble_gatt_on_ble_evt（与前面介绍的扫描过程变量m_scan 定义和事件处理函数nrf_ble_scan_on_ble_evt 注册过程类似），该事件处理函数的注册过程代码如下：
 
 ```c
@@ -876,6 +889,7 @@ void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
 ```
 
 ### 2.3.3 NUS 服务发现过程
+
 继续看前面介绍的连接事件处理函数ble_evt_handler 代码，当蓝牙主机与从机设备成功建立连接后，协议栈softdevice 触发事件BLE_GAP_EVT_CONNECTED，事件处理函数ble_evt_handler 则会执行函数ble_db_discovery_start 开始服务发现过程，该过程的函数调用逻辑如下：
 
 ```c
@@ -1167,6 +1181,7 @@ GATT Client 协议栈发现主服务后触发事件BLE_GATTC_EVT_PRIM_SRVC_DISC_
 主服务发现过程处理完成后，继续调用函数characteristics_discover 开始特征发现过程，特征发现请求也是放到GATT 队列（mp_gatt_queue）内管理的，整个过程跟前面介绍的主服务发现过程类似，只不过选择执行函数queue_process 内的NRF_BLE_GQ_REQ_CHAR_DISCOVERY 事件分支。特征发现过程处理完成后，继续调用函数descriptors_discover 开始描述符发现过程，整个过程也跟前两者类似，这里就不再赘述了。
 
 ### 2.3.4 NUS 服务访问过程
+
 待服务发现过程完成后，会在函数on_srv_disc_completion 中调用由db_discovery_init 注册了事件处理函数db_disc_handler，执行后续的响应动作，该函数实现代码如下：
 
 ```c
@@ -1427,6 +1442,9 @@ SVCALL(SD_BLE_GATTC_WRITE, uint32_t, sd_ble_gattc_write(uint16_t conn_handle, bl
 到这里，蓝牙主机与从机设备之间已经建立连接，并可以借助NUS 服务相互传输数据。然而，我们的扫码连接功能开发工作并未结束，前面还有一个悬置的问题尚未解决，蓝牙主机如何获得目标设备的MAC 地址呢？这就要靠nRF52 DK 通过UART 从PC 获得了。
 
 ## 2.4 UART(串口外设初始化和访问过程)
+
+### 2.4.1 UART 模块初始化
+
 PC 与nRF52 DK 之间要想通过UART 串口传输数据，需要先完成UART 外设的初始化，该过程的实现代码如下：
 
 ```c
@@ -1530,6 +1548,8 @@ static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGT
 前面介绍了GATT Client 接收到来自GATT Server 的通知数据后，执行函数ble_nus_chars_received_uart_print 将通知数据输出到UART 外设，也即nRF52 DK 将接收到的通知数据通过UART 发送给PC。当GATT Client 通过UART 接收完来自PC 的数据，则会触发事件APP_UART_DATA_READY，执行UART 事件处理函数uart_event_handle，处理从UART 接收到的数据。
 
 原工程ble_app_uart_c 处理从UART 接收到数据的逻辑也很简单，nRF52 DK（也即GATT Client）先判断接收到的字符串是否完整（也即是否包含结束符‘\r’ 或‘\n' ）或者是否超出NUS 服务支持的最大数据长度（m_ble_nus_max_data_len 默认值为20，若发生MTU 交换，该值也会同步更新），如果符合上述任一条件，则调用函数ble_nus_c_string_send 将UART 接收到的数据通过BLE NUS 发送给连接的对端设备（也即GATT Server）。
+
+### 2.4.2 处理UART 接收到的地址信息
 
 我们把目标设备地址从PC 经UART 串口发送给蓝牙主机nRF52 DK 后，蓝牙主机也需要在函数uart_event_handle 中处理接收到的目标设备地址，并将其设置到扫描过滤器中。
 
@@ -1635,7 +1655,9 @@ void uart_event_handle(app_uart_evt_t * p_event)
 到这里，我们要实现的扫码连接功能已经实现了，PC 通过摄像头或扫码枪获取目标设备地址的过程就省去了，我们编译工程无报错，接下来需要将代码烧录到nRF52 DK 中验证扫码连接功能是否可以正常工作。
 
 # 三、扫码连接功能验证
+
 ## 3.1 扫码连接功能验证
+
 我们将编译后的工程代码通过J-Link 烧录到nRF52 DK 中，开发板将会扫描周围可发现的蓝牙设备。由于我们设置了设备地址过滤条件，且设备地址初始值为0，开发板不会连接到任何设备。当我们通过UART 向nRF52 DK 发送包含目标设备地址的指令”conn:deviceaddress“ (比如"conn:E7C21EC0E768")，并以回车换行符结束（也即勾选”发送新行“），开发板将扫描MAC地址为E7C21EC0E768 的设备，当扫描到目标设备后自动向其发起连接。
 
 我们可以借助J-Link RTT Viewer 来查看开发板输出的log 信息，工程中已经通过函数log_init 完成了log 模块的初始化，log 输出等级默认为Info。J-Link RTT Viewer 输出的log 信息和putty 串口交互信息如下：
@@ -1651,6 +1673,7 @@ putty 并没有输出成功连接目标设备信息和服务发现信息，PC �
 putty 已经输出了我们通过函数printf 新增的状态通知信息，中间部分是GATT Client 向GATT Server 请求数据的过程，比如GATT Client 向GATT Server 发送”sw“ 查询软件版本，GATT Server 通知GATT Client 自己的软件版本是”0.27“。上述验证结果说明连接双方通讯正常，我们实现的扫码连接功能没有明显Bug。
 
 ## 3.2 新增获取RSSI 功能
+
 如果我们想在上述工程的基础上增加点功能或者UART 指令，比如PC 端通过UART 获取nRF52 DK 与目标设备连接的信号强度RSSI (Received Signal Strength Indication)，该怎么实现呢？
 
 蓝牙主机nRF52 DK 获取双方连接的信号强度RSSI 也需要调用协议栈softdevice 的接口函数，该调用哪个接口函数、调用流程是怎样的呢？我们打开nRF5 SDK 文档，搜索关键字"rssi"，可以获得如下的示例流程（[GAP RSSI get sample](https://infocenter.nordicsemi.com/index.jsp?topic=/sdk_nrf5_v17.0.2/index.html)）：
