@@ -1558,14 +1558,16 @@ static uint16_t StringToHex(char * str, uint8_t * out)
 
     while(cnt < (tmplen / 2))
     {
-        high = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 'A' - 10 : *p - '0';
+        high = ((*p >= 'a') && (*p <= 'f')) ? *p - 'a' + 10 : (((*p >= 'A') && (*p <= 'F')) ? *p - 'A' + 10 : *p - '0');
         p ++;
-        low = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 'A' - 10 : *p - '0';
+        low = ((*p >= 'a') && (*p <= 'f')) ? *p - 'a' + 10 : (((*p >= 'A') && (*p <= 'F')) ? *p - 'A' + 10 : *p - '0');
         out[cnt] = ((high & 0x0f) << 4 | (low & 0x0f));
         p ++;
         cnt ++;
     }
-    if(tmplen % 2 != 0) out[cnt] = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 'A' - 10 : *p - '0';
+
+    if(tmplen % 2 != 0)
+        out[cnt] = ((*p >= 'a') && (*p <= 'f')) ? *p - 'a' + 10 : (((*p >= 'A') && (*p <= 'F')) ? *p - 'A' + 10 : *p - '0');
 
     return tmplen / 2 + tmplen % 2;
 }
