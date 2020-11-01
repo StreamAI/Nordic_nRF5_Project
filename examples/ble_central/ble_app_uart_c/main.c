@@ -278,14 +278,14 @@ static uint16_t StringToHex(char * str, uint8_t * out)
 
     while(cnt < (tmplen / 2))
     {
-        high = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7 : *p - 48;
+        high = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 'A' - 10 : *p - '0';
         p ++;
-        low = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7 : *p - 48;
+        low = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 'A' - 10 : *p - '0';
         out[cnt] = ((high & 0x0f) << 4 | (low & 0x0f));
         p ++;
         cnt ++;
     }
-    if(tmplen % 2 != 0) out[cnt] = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7 : *p - 48;
+    if(tmplen % 2 != 0) out[cnt] = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 'A' - 10 : *p - '0';
 
     return tmplen / 2 + tmplen % 2;
 }
@@ -301,7 +301,7 @@ static uint8_t uart_cmd_process(uint8_t * p_data, uint16_t * p_index)
 
     // Handle commands that connect to a specified target device.
     if(strlen(p_data) >= 17 && (strncmp(p_data, "CONN:", 5) == 0 || strncmp(p_data, "conn:", 5) == 0))
-    {
+    {      
         // MSB(Most Significant Bit) convert to LSB(Least Significant Bit)
         for (i = 0; i < 2*BLE_GAP_ADDR_LEN; i++)
         {
