@@ -68,6 +68,7 @@
 #include "app_util_platform.h"
 #include "bsp_btn_ble.h"
 #include "nrf_pwr_mgmt.h"
+#include "nrf_queue.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -91,8 +92,8 @@
 
 #define APP_ADV_DURATION                18000                                       /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 
-#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
-#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(75, UNIT_1_25_MS)             /**< Maximum acceptable connection interval (75 ms), Connection interval uses 1.25 ms units. */
+#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(50, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
+#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(50, UNIT_1_25_MS)             /**< Maximum acceptable connection interval (75 ms), Connection interval uses 1.25 ms units. */
 #define SLAVE_LATENCY                   0                                           /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(4000, UNIT_10_MS)             /**< Connection supervisory timeout (4 seconds), Supervision Timeout uses 10 ms units. */
 #define FIRST_CONN_PARAMS_UPDATE_DELAY  APP_TIMER_TICKS(5000)                       /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
@@ -118,6 +119,26 @@ static ble_uuid_t m_adv_uuids[]          =                                      
 };
 
 
+/**@brief Resources related to throughput testing.
+ */
+#define DATA_THROUGHPUT_INTERVAL            APP_TIMER_TICKS(5)                   /**< data throughput interval (ticks). */
+
+APP_TIMER_DEF(m_timer_throughput_id);
+
+#define QUEUE_ELEMENT_NUMBERS               32
+#define PKGS_PER_TIMER_PERIOD               8
+
+uint32_t m_data_sent_length = 0;
+uint8_t m_data_array[QUEUE_ELEMENT_NUMBERS][BLE_NUS_MAX_DATA_LEN] = {0};
+typedef struct
+{
+    uint8_t * p_data;
+    uint16_t length;
+} m_element_t;
+
+NRF_QUEUE_DEF(m_element_t, m_buf_queue, QUEUE_ELEMENT_NUMBERS, NRF_QUEUE_MODE_NO_OVERFLOW);
+
+
 /**@brief Function for assert macro callback.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -134,11 +155,89 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
+/**@brief Use queue to send ble data.
+ */
+void ble_data_send_with_queue(void)
+{
+    ret_code_t err_code;
+    m_element_t data_item;
+    uint16_t length = BLE_NUS_MAX_DATA_LEN;
+
+    while(!nrf_queue_is_empty(&m_buf_queue))
+    {
+        err_code = nrf_queue_pop(&m_buf_queue, &data_item);
+        APP_ERROR_CHECK(err_code);
+
+        length = MIN(length, data_item.length);
+        err_code = ble_nus_data_send(&m_nus, data_item.p_data, &length, m_conn_handle);
+        if ((err_code != NRF_ERROR_INVALID_STATE) &&
+            (err_code != NRF_ERROR_RESOURCES) &&
+            (err_code != NRF_ERROR_NOT_FOUND))
+        {
+            APP_ERROR_CHECK(err_code);
+        }
+        if(err_code == NRF_SUCCESS)
+            m_data_sent_length += length;
+        else
+            break;
+    }
+}
+
+
+/**@brief Data generation timer timeout handler function.
+ */
+static void data_throughput_timeout_handler(void * p_context)
+{
+    UNUSED_PARAMETER(p_context);
+    
+    static uint32_t timeout_count = 0;
+    ret_code_t err_code;
+
+    static uint8_t value = 0;
+    m_element_t data_item;
+    uint16_t length = BLE_NUS_MAX_DATA_LEN;
+    uint8_t pkgs = PKGS_PER_TIMER_PERIOD;
+    
+    timeout_count++;
+
+    while (!nrf_queue_is_full(&m_buf_queue) && pkgs--)
+    {
+        m_data_array[value % QUEUE_ELEMENT_NUMBERS][0] = value;
+        m_data_array[value % QUEUE_ELEMENT_NUMBERS][length-1] = value;
+
+        data_item.p_data = &m_data_array[value % QUEUE_ELEMENT_NUMBERS][0];
+        data_item.length = length;
+
+        err_code = nrf_queue_push(&m_buf_queue, &data_item);
+        APP_ERROR_CHECK(err_code);
+
+        value++;
+    }
+
+    ble_data_send_with_queue();
+
+    // Timer interval 5 ms, when the timer reaches 1 second 
+    if(timeout_count == 200)
+    {
+        // Send m_data_sent_length bytes of data within 1 second, which is equal to m_data_sent_length * 8 / 1024 kilobits of data
+        NRF_LOG_INFO("****** BLE data throughput: %d kbps ******", m_data_sent_length >> 7);
+        m_data_sent_length = 0;
+        timeout_count = 0;
+        value = 0;
+    }
+}
+
 /**@brief Function for initializing the timer module.
  */
 static void timers_init(void)
 {
     ret_code_t err_code = app_timer_init();
+    APP_ERROR_CHECK(err_code);
+
+    // Create a data generation timer for testing throughput.
+    err_code = app_timer_create(&m_timer_throughput_id, 
+                                APP_TIMER_MODE_REPEATED, 
+                                data_throughput_timeout_handler);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -220,7 +319,19 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
             while (app_uart_put('\n') == NRF_ERROR_BUSY);
         }
     }
-
+    else if(p_evt->type == BLE_NUS_EVT_COMM_STARTED)
+    {
+        // Start data throughput timers.
+        ret_code_t err_code;
+        err_code = app_timer_start(m_timer_throughput_id, 
+                                   DATA_THROUGHPUT_INTERVAL,
+                                   NULL);
+        APP_ERROR_CHECK(err_code);
+    }
+    else if(p_evt->type == BLE_NUS_EVT_TX_RDY)
+    {
+        ble_data_send_with_queue();
+    }
 }
 /**@snippet [Handling the data received over BLE] */
 
@@ -373,6 +484,9 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             NRF_LOG_INFO("Disconnected");
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
+            // Stop data throughput timers.
+            err_code = app_timer_stop(m_timer_throughput_id);
+            APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
