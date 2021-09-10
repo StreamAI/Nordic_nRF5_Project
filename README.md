@@ -21,7 +21,9 @@
 
 ### 11.《[如何为BLE 设备添加OTA DFU 空中升级服务(下)?](https://blog.csdn.net/m0_37621078/article/details/115771780)》
 
-### 12.《[Bluetooth Core Specification_v5.2](https://www.bluetooth.com/specifications/bluetooth-core-specification/)》
+### 12.《[BLE 技术（七）--- BLE MESH 是如何设计的？](https://blog.csdn.net/m0_37621078/article/details/116357471)》
 
-### 13.《[Nordic nRF5 SDK documentation](https://infocenter.nordicsemi.com/index.jsp?topic=/sdk_nrf5_v17.0.2/index.html)》
+### 13.《[BLE 技术（八）--- BLE MESH 各层报文是如何设计的(上)?](https://blog.csdn.net/m0_37621078/article/details/117399744)》
+
+### 14.《[BLE 技术（九）--- SIG MESH Models 是如何设计的(下)?](https://blog.csdn.net/m0_37621078/article/details/117811869)》
 
