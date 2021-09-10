@@ -19,7 +19,9 @@
 
 ### 10.《[如何为BLE 设备实现OTA DFU 空中升级功能(上)?](https://blog.csdn.net/m0_37621078/article/details/115541552)》
 
-### 11.《[Bluetooth Core Specification_v5.2](https://www.bluetooth.com/specifications/bluetooth-core-specification/)》
+### 11.《[如何为BLE 设备添加OTA DFU 空中升级服务(下)?](https://blog.csdn.net/m0_37621078/article/details/115771780)》
 
-### 12.《[Nordic nRF5 SDK documentation](https://infocenter.nordicsemi.com/index.jsp?topic=/sdk_nrf5_v17.0.2/index.html)》
+### 12.《[Bluetooth Core Specification_v5.2](https://www.bluetooth.com/specifications/bluetooth-core-specification/)》
+
+### 13.《[Nordic nRF5 SDK documentation](https://infocenter.nordicsemi.com/index.jsp?topic=/sdk_nrf5_v17.0.2/index.html)》
 
