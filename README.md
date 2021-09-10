@@ -1,4 +1,6 @@
 # Nordic_nRF5_Project
+## 一、项目：
+
 ### 1.《[如何实现扫码连接BLE 设备的功能(以nRF5 为例)?](https://github.com/StreamAI/Nordic_nRF5_Project/tree/main/examples/ble_central/ble_app_uart_c)》
 
 ### 2.《[如何实现BLE 最大数据吞吐率并满足设计功耗要求?](https://github.com/StreamAI/Nordic_nRF5_Project/tree/main/examples/ble_peripheral/ble_app_uart)》
@@ -8,6 +10,10 @@
 ### 4.《[如何为BLE 设备实现OTA DFU 空中升级功能(上)?](https://github.com/StreamAI/Nordic_nRF5_Project/tree/main/BLE_Buttonless_DFU)》
 
 ### 5.《[如何为BLE 设备添加OTA DFU 空中升级服务(下)?](https://github.com/StreamAI/Nordic_nRF5_Project/tree/main/BLE_NUS_DFU)》
+
+
+
+## 二、博客：
 
 ### 6.《[Bluetooth 技术（一）--- 协议栈设计与演进(Core_v5.2)](https://blog.csdn.net/m0_37621078/article/details/106995704)》
 
